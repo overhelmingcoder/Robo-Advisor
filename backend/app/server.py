@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.chat import router as chat_router
 from app.api.recommend import router as recommend_router
 from app.api.schemes import router as schemes_router
-from app.config import ALLOWED_ORIGINS, AI_PROVIDER, AI_URL
+from app.config import ALLOWED_ORIGIN_REGEX, ALLOWED_ORIGINS, AI_PROVIDER, AI_URL
 import logging
 
 
@@ -13,6 +13,7 @@ app = FastAPI(title="Bangladesh Robo-Advisor API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=ALLOWED_ORIGIN_REGEX,
     allow_methods=["*"],
     allow_headers=["*"],
 )

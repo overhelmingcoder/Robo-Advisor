@@ -68,6 +68,10 @@ ALLOWED_ORIGINS = [
     "http://localhost:3000",
     *_DEPLOYED_ORIGINS,
 ]
+ALLOWED_ORIGIN_REGEX = os.getenv(
+    "ALLOWED_ORIGIN_REGEX",
+    r"https://.*\.vercel\.app",
+)
 
 # ── Runtime state ─────────────────────────────────────────────────────────────
 # Simple in-memory cache for recommendations: {key: (ts, result_json)}
