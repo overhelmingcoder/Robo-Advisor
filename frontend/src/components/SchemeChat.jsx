@@ -162,11 +162,14 @@ function normalizeReply(content) {
 
 function replyToMarkdown(reply) {
   if (!reply) return ''
+
+  const existingMarkdown = stripCodeFence(reply.markdown || '')
+  if (existingMarkdown && !looksLikeJson(existingMarkdown)) {
+    return existingMarkdown
+  }
+
   const chunks = []
   const highlights = reply.highlights || {}
-
-  if (reply.markdown && !looksLikeJson(reply.markdown)) chunks.push(reply.markdown)
-
   if (reply.recommendation_summary) {
     chunks.push(reply.recommendation_summary)
   }
@@ -274,17 +277,6 @@ function MarkdownFallback({ text }) {
   return (
     <MarkdownRenderer text={text} />
   )
-}
-
-function MarkdownText({ text }) {
-  if (!text || looksLikeJson(text)) return null
-  return String(text)
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.trim())
-    .filter(Boolean)
-    .map((paragraph, index) => (
-      <p key={index}>{renderInlineMarkdown(paragraph.replace(/\n/g, ' '))}</p>
-    ))
 }
 
 function ComparisonTable({ table }) {
