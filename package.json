@@ -1,0 +1,8 @@
+{
+  "name": "robo-advisor",
+  "private": true,
+  "scripts": {
+    "vercel-install": "npm ci --prefix frontend",
+    "vercel-build": "npm run build --prefix frontend"
+  }
+}
