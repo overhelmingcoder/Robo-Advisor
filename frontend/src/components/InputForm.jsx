@@ -3,6 +3,13 @@ import { RISK_COLORS, RISK_BG } from '../constants/appConstants'
 import Field from './Field'
 import NumberInput from './NumberInput'
 
+const DEFAULT_SUGGESTIONS = {
+  monthly_income: [30000, 50000, 80000],
+  monthly_investment: [5000, 10000, 20000],
+  time_range_years: [1, 3, 5],
+  target_goal: [500000, 1000000, 2000000],
+}
+
 function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
   const [form, setForm] = useState({
     monthly_income: '',
@@ -35,11 +42,12 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
       })
       .filter((v) => v !== null && v !== '')
 
-    // Get unique values (last 3)
-    const unique = [...new Set(values)].slice(0, 3)
+    const defaults = DEFAULT_SUGGESTIONS[fieldKey] || []
+    const unique = [...new Set([...values, ...defaults])].filter((v) => v !== null && v !== '').slice(0, 4)
 
     return unique.map((val) => ({
       label: fieldKey.includes('years') ? `${val}y` : formatCurrency(val),
+      value: val,
       onClick: () => setField(fieldKey, String(val)),
     }))
   }
@@ -75,6 +83,10 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
   const savingsRate = form.monthly_income && form.monthly_investment
     ? ((form.monthly_investment / form.monthly_income) * 100).toFixed(1)
     : null
+  const incomeSuggestions = getFieldSuggestions('monthly_income')
+  const investmentSuggestions = getFieldSuggestions('monthly_investment')
+  const horizonSuggestions = getFieldSuggestions('time_range_years')
+  const goalSuggestions = getFieldSuggestions('target_goal')
 
   return (
     <div style={{
@@ -100,20 +112,20 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        <Field label="Monthly Income" unit="BDT" error={errors.monthly_income} hint={savingsRate ? `Savings rate: ${savingsRate}%` : null} suggestions={getFieldSuggestions('monthly_income')}>
-          <NumberInput value={form.monthly_income} onChange={(v) => setField('monthly_income', v)} placeholder="e.g. 50000" />
+        <Field label="Monthly Income" unit="BDT" error={errors.monthly_income} hint={savingsRate ? `Savings rate: ${savingsRate}%` : null} suggestions={incomeSuggestions}>
+          <NumberInput value={form.monthly_income} onChange={(v) => setField('monthly_income', v)} placeholder="e.g. 50000" suggestions={incomeSuggestions} />
         </Field>
 
-        <Field label="Monthly Investment" unit="BDT" error={errors.monthly_investment} suggestions={getFieldSuggestions('monthly_investment')}>
-          <NumberInput value={form.monthly_investment} onChange={(v) => setField('monthly_investment', v)} placeholder="e.g. 10000" />
+        <Field label="Monthly Investment" unit="BDT" error={errors.monthly_investment} suggestions={investmentSuggestions}>
+          <NumberInput value={form.monthly_investment} onChange={(v) => setField('monthly_investment', v)} placeholder="e.g. 10000" suggestions={investmentSuggestions} />
         </Field>
 
-        <Field label="Investment Horizon" unit="Years" error={errors.time_range_years} suggestions={getFieldSuggestions('time_range_years')}>
-          <NumberInput value={form.time_range_years} onChange={(v) => setField('time_range_years', v)} placeholder="e.g. 5" step="0.5" />
+        <Field label="Investment Horizon" unit="Years" error={errors.time_range_years} suggestions={horizonSuggestions}>
+          <NumberInput value={form.time_range_years} onChange={(v) => setField('time_range_years', v)} placeholder="e.g. 5" step="0.5" suggestions={horizonSuggestions} />
         </Field>
 
-        <Field label="Target Goal" unit="BDT (optional)" suggestions={getFieldSuggestions('target_goal')}>
-          <NumberInput value={form.target_goal} onChange={(v) => setField('target_goal', v)} placeholder="e.g. 1000000" />
+        <Field label="Target Goal" unit="BDT (optional)" suggestions={goalSuggestions}>
+          <NumberInput value={form.target_goal} onChange={(v) => setField('target_goal', v)} placeholder="e.g. 1000000" suggestions={goalSuggestions} />
         </Field>
       </div>
 

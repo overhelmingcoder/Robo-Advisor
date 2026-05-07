@@ -20,6 +20,7 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false)
   const [chatError, setChatError] = useState(null)
   const resultsRef = useRef(null)
+  const chatAbortRef = useRef(null)
 
   const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
 
@@ -58,14 +59,19 @@ export default function App() {
   }
 
   const handleBackToResults = () => {
+    chatAbortRef.current?.abort()
     setSelectedScheme(null)
     setChatMessages([])
     setChatError(null)
+    setChatLoading(false)
   }
 
   const handleSendChatMessage = async (message) => {
     if (!selectedScheme) return
 
+    chatAbortRef.current?.abort()
+    const controller = new AbortController()
+    chatAbortRef.current = controller
     const nextMessages = [...chatMessages, { role: 'user', content: message }]
     setChatMessages(nextMessages)
     setChatError(null)
@@ -86,13 +92,23 @@ export default function App() {
           profile,
         },
         API_BASE,
+        { signal: controller.signal },
       )
       setChatMessages((current) => [...current, { role: 'assistant', content: data.reply }])
     } catch (e) {
-      setChatError(e.message)
+      if (e.name !== 'AbortError') setChatError(e.message)
     } finally {
-      setChatLoading(false)
+      if (chatAbortRef.current === controller) {
+        chatAbortRef.current = null
+        setChatLoading(false)
+      }
     }
+  }
+
+  const handlePauseChat = () => {
+    chatAbortRef.current?.abort()
+    chatAbortRef.current = null
+    setChatLoading(false)
   }
 
   return (
@@ -147,6 +163,7 @@ export default function App() {
                 error={chatError}
                 onBack={handleBackToResults}
                 onSend={handleSendChatMessage}
+                onPause={handlePauseChat}
               />
             </div>
           )}

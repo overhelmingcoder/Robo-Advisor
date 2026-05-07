@@ -328,7 +328,7 @@ function MessageBubble({ role, content }) {
   )
 }
 
-function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error }) {
+function SchemeChat({ scheme, profile, messages, onSend, onBack, onPause, loading, error }) {
   const inputRef = useRef(null)
   const endRef = useRef(null)
   const [draft, setDraft] = useState('')
@@ -425,6 +425,13 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
       </div>
 
       {error && <div className="scheme-chat-error">✕ {error}</div>}
+      {loading && (
+        <div className="scheme-chat-pause-row">
+          <button type="button" onClick={onPause} className="scheme-chat-pause">
+            Pause response
+          </button>
+        </div>
+      )}
 
       {messages.length <= 1 && (
         <div className="quick-question-panel">

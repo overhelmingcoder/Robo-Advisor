@@ -15,13 +15,14 @@ export async function fetchRecommendations(profile, apiBase) {
   return res.json()
 }
 
-export async function sendSchemeChatMessage(payload, apiBase) {
+export async function sendSchemeChatMessage(payload, apiBase, options = {}) {
   const endpoint = apiBase ? `${apiBase}/chat` : '/api/chat'
 
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    signal: options.signal,
   })
 
   if (!res.ok) {
