@@ -28,21 +28,111 @@ function riskBg(value) {
   return RISK_BG[value] || 'var(--gold-dim)'
 }
 
+function looksLikeJson(value) {
+  if (typeof value !== 'string') return false
+  const trimmed = value.trim()
+  return (trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))
+}
+
+function stripCodeFence(value) {
+  return String(value || '')
+    .replace(/^```(?:json|markdown|md)?\s*/i, '')
+    .replace(/```$/i, '')
+    .trim()
+}
+
+function parseJsonMaybe(value) {
+  if (typeof value !== 'string') return null
+  const cleaned = stripCodeFence(value)
+  if (!looksLikeJson(cleaned)) return null
+  try {
+    const parsed = JSON.parse(cleaned)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function normalizeArray(value) {
+  if (Array.isArray(value)) return value.flatMap((item) => normalizeArray(item))
+  if (typeof value === 'string') {
+    const parsed = parseJsonMaybe(value)
+    if (parsed) return normalizeArray(parsed)
+    return value
+      .split('\n')
+      .map((line) => line.replace(/^[-*]\s+/, '').trim())
+      .filter(Boolean)
+  }
+  if (value == null) return []
+  return [String(value)]
+}
+
+function normalizeTable(table) {
+  const parsed = typeof table === 'string' ? parseJsonMaybe(table) : table
+  if (!parsed || typeof parsed !== 'object') return null
+
+  const columns = parsed.columns || parsed.headers || []
+  const rows = parsed.rows || parsed.data || []
+  if (Array.isArray(columns) && Array.isArray(rows) && columns.length && rows.length) {
+    return {
+      columns: columns.map(String),
+      rows: rows.map((row) => {
+        if (Array.isArray(row)) return row.map((cell) => String(cell ?? ''))
+        if (row && typeof row === 'object') return columns.map((column) => String(row[column] ?? row[String(column).toLowerCase()] ?? ''))
+        return [String(row)]
+      }),
+    }
+  }
+
+  if (Array.isArray(parsed)) {
+    const objectRows = parsed.filter((row) => row && typeof row === 'object' && !Array.isArray(row))
+    if (objectRows.length) {
+      const objectColumns = [...new Set(objectRows.flatMap((row) => Object.keys(row)))]
+      return {
+        columns: objectColumns,
+        rows: objectRows.map((row) => objectColumns.map((column) => String(row[column] ?? ''))),
+      }
+    }
+  }
+
+  return null
+}
+
 function normalizeReply(content) {
   if (!content) return null
-  if (typeof content === 'object') return content
-  if (typeof content !== 'string') return { markdown: String(content) }
-  try {
-    const parsed = JSON.parse(content)
-    if (parsed && typeof parsed === 'object') return parsed
-  } catch {
-    // Plain markdown/text fallback.
+  const parsedContent = typeof content === 'string' ? parseJsonMaybe(content) : null
+  const source = parsedContent || (typeof content === 'object' ? content : null)
+
+  if (!source) {
+    return { markdown: stripCodeFence(content), recommendation_summary: stripCodeFence(content) }
   }
-  return { markdown: content, recommendation_summary: content }
+
+  const nestedReply =
+    parseJsonMaybe(source.reply) ||
+    parseJsonMaybe(source.content) ||
+    parseJsonMaybe(source.message) ||
+    parseJsonMaybe(source.markdown) ||
+    parseJsonMaybe(source.recommendation_summary)
+
+  if (nestedReply) {
+    return normalizeReply(nestedReply)
+  }
+
+  const summary = source.recommendation_summary || source.summary || ''
+  return {
+    recommendation_summary: looksLikeJson(summary) ? '' : summary,
+    highlights: source.highlights || {},
+    comparison_table: normalizeTable(source.comparison_table || source.table),
+    risk_analysis: normalizeArray(source.risk_analysis),
+    why_this_fits_user: normalizeArray(source.why_this_fits_user || source.why_this_fits || source.fit_analysis),
+    final_suggestion: source.final_suggestion || source.recommendation || '',
+    markdown: looksLikeJson(source.markdown) ? '' : source.markdown || '',
+  }
 }
 
 function renderInlineMarkdown(text) {
-  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g)
+  const safeText = looksLikeJson(text) ? '' : String(text || '')
+  const parts = safeText.split(/(\*\*[^*]+\*\*)/g)
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={index}>{part.slice(2, -2)}</strong>
@@ -52,6 +142,7 @@ function renderInlineMarkdown(text) {
 }
 
 function MarkdownFallback({ text }) {
+  if (looksLikeJson(text)) return null
   const lines = String(text || '').split('\n').filter((line) => line.trim())
   if (!lines.length) return null
 
@@ -71,6 +162,17 @@ function MarkdownFallback({ text }) {
   )
 }
 
+function MarkdownText({ text }) {
+  if (!text || looksLikeJson(text)) return null
+  return String(text)
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean)
+    .map((paragraph, index) => (
+      <p key={index}>{renderInlineMarkdown(paragraph.replace(/\n/g, ' '))}</p>
+    ))
+}
+
 function HighlightBadge({ label, value, kind }) {
   if (!value) return null
   const isRisk = kind === 'risk'
@@ -84,7 +186,7 @@ function HighlightBadge({ label, value, kind }) {
   )
 }
 
-function AdvisorTable({ table }) {
+function ComparisonTable({ table }) {
   const columns = table?.columns || []
   const rows = table?.rows || []
   if (!columns.length || !rows.length) return null
@@ -125,6 +227,15 @@ function SectionCard({ title, children, accent = 'var(--teal)' }) {
   )
 }
 
+function SummaryCard({ summary }) {
+  if (!summary || looksLikeJson(summary)) return null
+  return (
+    <SectionCard title={SECTION_TITLES.recommendation_summary} accent="var(--gold)">
+      <MarkdownText text={summary} />
+    </SectionCard>
+  )
+}
+
 function BulletList({ items }) {
   const list = Array.isArray(items) ? items : items ? [items] : []
   if (!list.length) return null
@@ -134,6 +245,36 @@ function BulletList({ items }) {
         <li key={index}>{renderInlineMarkdown(item)}</li>
       ))}
     </ul>
+  )
+}
+
+function RiskAnalysis({ items, riskLevel }) {
+  const list = normalizeArray(items)
+  if (!list.length) return null
+  return (
+    <SectionCard title={SECTION_TITLES.risk_analysis} accent={riskColor(riskLevel)}>
+      <BulletList items={list} />
+    </SectionCard>
+  )
+}
+
+function WhyThisFits({ items }) {
+  const list = normalizeArray(items)
+  if (!list.length) return null
+  return (
+    <SectionCard title={SECTION_TITLES.why_this_fits_user} accent="var(--green)">
+      <BulletList items={list} />
+    </SectionCard>
+  )
+}
+
+function FinalSuggestion({ text }) {
+  if (!text || looksLikeJson(text)) return null
+  return (
+    <section className="advisor-final-suggestion">
+      <h3>{SECTION_TITLES.final_suggestion}</h3>
+      <MarkdownText text={text} />
+    </section>
   )
 }
 
@@ -155,6 +296,7 @@ function StructuredAdvisorReply({ content }) {
   }
 
   const highlights = reply.highlights || {}
+  const table = normalizeTable(reply.comparison_table)
   return (
     <div className="advisor-response">
       <div className="advisor-highlight-grid">
@@ -165,25 +307,19 @@ function StructuredAdvisorReply({ content }) {
         <HighlightBadge label="Best Option" value={highlights.best_option} kind="best" />
       </div>
 
-      <SectionCard title={SECTION_TITLES.recommendation_summary} accent="var(--gold)">
-        <p>{renderInlineMarkdown(reply.recommendation_summary)}</p>
-      </SectionCard>
+      <SummaryCard summary={reply.recommendation_summary} />
 
-      <SectionCard title={SECTION_TITLES.comparison_table} accent="var(--teal)">
-        <AdvisorTable table={reply.comparison_table} />
-      </SectionCard>
+      {table && (
+        <SectionCard title={SECTION_TITLES.comparison_table} accent="var(--teal)">
+          <ComparisonTable table={table} />
+        </SectionCard>
+      )}
 
-      <SectionCard title={SECTION_TITLES.risk_analysis} accent={riskColor(highlights.risk_level)}>
-        <BulletList items={reply.risk_analysis} />
-      </SectionCard>
+      <RiskAnalysis items={reply.risk_analysis} riskLevel={highlights.risk_level} />
 
-      <SectionCard title={SECTION_TITLES.why_this_fits_user} accent="var(--green)">
-        <BulletList items={reply.why_this_fits_user} />
-      </SectionCard>
+      <WhyThisFits items={reply.why_this_fits_user} />
 
-      <SectionCard title={SECTION_TITLES.final_suggestion} accent="var(--gold)">
-        <p>{renderInlineMarkdown(reply.final_suggestion)}</p>
-      </SectionCard>
+      <FinalSuggestion text={reply.final_suggestion} />
 
       {reply.markdown && !reply.recommendation_summary && <MarkdownFallback text={reply.markdown} />}
     </div>
