@@ -1,5 +1,11 @@
 {
   "installCommand": "npm run vercel-install",
   "buildCommand": "npm run vercel-build",
-  "outputDirectory": "frontend/dist"
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://robo-advisor-backend-7tds.onrender.com/:path*"
+    }
+  ]
 }
