@@ -22,7 +22,11 @@ export default function App() {
   const resultsRef = useRef(null)
   const chatAbortRef = useRef(null)
 
-  const API_BASE = (import.meta?.env?.VITE_API_URL || '').replace(/\/$/, '')
+  const DEFAULT_PROD_API_URL = 'https://robo-advisor-backend-7tds.onrender.com'
+  const API_BASE = (
+    import.meta?.env?.VITE_API_URL ||
+    (import.meta?.env?.DEV ? '' : DEFAULT_PROD_API_URL)
+  ).replace(/\/$/, '')
 
   const handleSubmit = async (profileData) => {
     setLoading(true)
