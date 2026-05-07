@@ -12,14 +12,6 @@ const COMMON_QUESTIONS = [
   'How does it compare to my goal?',
 ]
 
-const SECTION_TITLES = {
-  recommendation_summary: 'Recommendation Summary',
-  comparison_table: 'Comparison Table',
-  risk_analysis: 'Risk Analysis',
-  why_this_fits_user: 'Why This Fits the User',
-  final_suggestion: 'Final Suggestion',
-}
-
 function riskColor(value) {
   return RISK_COLORS[value] || 'var(--gold)'
 }
@@ -98,6 +90,44 @@ function normalizeTable(table) {
   return null
 }
 
+function markdownTableToTable(lines, startIndex) {
+  const header = splitMarkdownTableRow(lines[startIndex])
+  const separator = splitMarkdownTableRow(lines[startIndex + 1] || '')
+  if (!header.length || !separator.length || !separator.every((cell) => /^:?-{3,}:?$/.test(cell.trim()))) {
+    return null
+  }
+
+  const rows = []
+  let index = startIndex + 2
+  while (index < lines.length && /^\s*\|.*\|\s*$/.test(lines[index])) {
+    rows.push(splitMarkdownTableRow(lines[index]))
+    index += 1
+  }
+
+  return {
+    table: { columns: header, rows },
+    nextIndex: index,
+  }
+}
+
+function splitMarkdownTableRow(line) {
+  return String(line || '')
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim())
+}
+
+function tableToMarkdown(table) {
+  const normalized = normalizeTable(table)
+  if (!normalized) return ''
+  const header = `| ${normalized.columns.join(' | ')} |`
+  const separator = `| ${normalized.columns.map(() => '---').join(' | ')} |`
+  const rows = normalized.rows.map((row) => `| ${normalized.columns.map((_, index) => row[index] || '').join(' | ')} |`)
+  return [header, separator, ...rows].join('\n')
+}
+
 function normalizeReply(content) {
   if (!content) return null
   const parsedContent = typeof content === 'string' ? parseJsonMaybe(content) : null
@@ -130,6 +160,40 @@ function normalizeReply(content) {
   }
 }
 
+function replyToMarkdown(reply) {
+  if (!reply) return ''
+  const chunks = []
+  const highlights = reply.highlights || {}
+
+  if (reply.markdown && !looksLikeJson(reply.markdown)) chunks.push(reply.markdown)
+
+  if (reply.recommendation_summary) {
+    chunks.push(reply.recommendation_summary)
+  }
+
+  const highlightLines = [
+    highlights.risk_level && `- **Risk:** ${highlights.risk_level}`,
+    highlights.expected_return && `- **Expected return:** ${highlights.expected_return}`,
+    highlights.duration && `- **Duration:** ${highlights.duration}`,
+    highlights.liquidity && `- **Liquidity:** ${highlights.liquidity}`,
+    highlights.best_option && `- **Best option:** ${highlights.best_option}`,
+  ].filter(Boolean)
+  if (highlightLines.length) chunks.push(highlightLines.join('\n'))
+
+  const tableMarkdown = tableToMarkdown(reply.comparison_table)
+  if (tableMarkdown) chunks.push(tableMarkdown)
+
+  const riskItems = normalizeArray(reply.risk_analysis)
+  if (riskItems.length) chunks.push(`**Risk analysis**\n${riskItems.map((item) => `- ${item}`).join('\n')}`)
+
+  const fitItems = normalizeArray(reply.why_this_fits_user)
+  if (fitItems.length) chunks.push(`**Why this fits**\n${fitItems.map((item) => `- ${item}`).join('\n')}`)
+
+  if (reply.final_suggestion) chunks.push(`**Final suggestion:** ${reply.final_suggestion}`)
+
+  return chunks.filter(Boolean).join('\n\n')
+}
+
 function renderInlineMarkdown(text) {
   const safeText = looksLikeJson(text) ? '' : String(text || '')
   const parts = safeText.split(/(\*\*[^*]+\*\*)/g)
@@ -141,24 +205,74 @@ function renderInlineMarkdown(text) {
   })
 }
 
-function MarkdownFallback({ text }) {
+function MarkdownRenderer({ text }) {
   if (looksLikeJson(text)) return null
-  const lines = String(text || '').split('\n').filter((line) => line.trim())
+  const lines = String(text || '').split('\n')
   if (!lines.length) return null
 
+  const nodes = []
+  let listItems = []
+
+  const flushList = () => {
+    if (!listItems.length) return
+    nodes.push(
+      <ul key={`list-${nodes.length}`} className="chat-md-list">
+        {listItems.map((item, index) => (
+          <li key={index}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ul>,
+    )
+    listItems = []
+  }
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
+    const trimmed = line.trim()
+    if (!trimmed) {
+      flushList()
+      continue
+    }
+
+    const tableResult = markdownTableToTable(lines, index)
+    if (tableResult) {
+      flushList()
+      nodes.push(<ComparisonTable key={`table-${nodes.length}`} table={tableResult.table} />)
+      index = tableResult.nextIndex - 1
+      continue
+    }
+
+    if (trimmed.startsWith('### ')) {
+      flushList()
+      nodes.push(<h4 key={`h-${nodes.length}`}>{trimmed.slice(4)}</h4>)
+      continue
+    }
+    if (trimmed.startsWith('## ')) {
+      flushList()
+      nodes.push(<h3 key={`h-${nodes.length}`}>{trimmed.slice(3)}</h3>)
+      continue
+    }
+    if (trimmed.startsWith('# ')) {
+      flushList()
+      nodes.push(<h3 key={`h-${nodes.length}`}>{trimmed.slice(2)}</h3>)
+      continue
+    }
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      listItems.push(trimmed.slice(2))
+      continue
+    }
+
+    flushList()
+    nodes.push(<p key={`p-${nodes.length}`}>{renderInlineMarkdown(trimmed)}</p>)
+  }
+
+  flushList()
+  return <div className="chat-markdown">{nodes}</div>
+}
+
+function MarkdownFallback({ text }) {
+  if (looksLikeJson(text)) return null
   return (
-    <div className="advisor-markdown">
-      {lines.map((line, index) => {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('### ')) return <h4 key={index}>{trimmed.slice(4)}</h4>
-        if (trimmed.startsWith('## ')) return <h3 key={index}>{trimmed.slice(3)}</h3>
-        if (trimmed.startsWith('# ')) return <h3 key={index}>{trimmed.slice(2)}</h3>
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          return <p key={index} className="advisor-list-line">• {renderInlineMarkdown(trimmed.slice(2))}</p>
-        }
-        return <p key={index}>{renderInlineMarkdown(trimmed)}</p>
-      })}
-    </div>
+    <MarkdownRenderer text={text} />
   )
 }
 
@@ -171,19 +285,6 @@ function MarkdownText({ text }) {
     .map((paragraph, index) => (
       <p key={index}>{renderInlineMarkdown(paragraph.replace(/\n/g, ' '))}</p>
     ))
-}
-
-function HighlightBadge({ label, value, kind }) {
-  if (!value) return null
-  const isRisk = kind === 'risk'
-  const color = isRisk ? riskColor(value) : kind === 'best' ? 'var(--gold)' : 'var(--teal)'
-  const bg = isRisk ? riskBg(value) : kind === 'best' ? 'var(--gold-dim)' : 'var(--teal-dim)'
-  return (
-    <div className="advisor-badge" style={{ borderColor: `${color}55`, background: bg }}>
-      <span>{label}</span>
-      <strong style={{ color }}>{value}</strong>
-    </div>
-  )
 }
 
 function ComparisonTable({ table }) {
@@ -217,113 +318,10 @@ function ComparisonTable({ table }) {
   )
 }
 
-function SectionCard({ title, children, accent = 'var(--teal)' }) {
-  if (!children) return null
-  return (
-    <section className="advisor-section" style={{ borderLeftColor: accent }}>
-      <h3>{title}</h3>
-      {children}
-    </section>
-  )
-}
-
-function SummaryCard({ summary }) {
-  if (!summary || looksLikeJson(summary)) return null
-  return (
-    <SectionCard title={SECTION_TITLES.recommendation_summary} accent="var(--gold)">
-      <MarkdownText text={summary} />
-    </SectionCard>
-  )
-}
-
-function BulletList({ items }) {
-  const list = Array.isArray(items) ? items : items ? [items] : []
-  if (!list.length) return null
-  return (
-    <ul className="advisor-list">
-      {list.map((item, index) => (
-        <li key={index}>{renderInlineMarkdown(item)}</li>
-      ))}
-    </ul>
-  )
-}
-
-function RiskAnalysis({ items, riskLevel }) {
-  const list = normalizeArray(items)
-  if (!list.length) return null
-  return (
-    <SectionCard title={SECTION_TITLES.risk_analysis} accent={riskColor(riskLevel)}>
-      <BulletList items={list} />
-    </SectionCard>
-  )
-}
-
-function WhyThisFits({ items }) {
-  const list = normalizeArray(items)
-  if (!list.length) return null
-  return (
-    <SectionCard title={SECTION_TITLES.why_this_fits_user} accent="var(--green)">
-      <BulletList items={list} />
-    </SectionCard>
-  )
-}
-
-function FinalSuggestion({ text }) {
-  if (!text || looksLikeJson(text)) return null
-  return (
-    <section className="advisor-final-suggestion">
-      <h3>{SECTION_TITLES.final_suggestion}</h3>
-      <MarkdownText text={text} />
-    </section>
-  )
-}
-
 function StructuredAdvisorReply({ content }) {
   const reply = normalizeReply(content)
   if (!reply) return null
-
-  const hasStructuredContent = Boolean(
-    reply.recommendation_summary ||
-    reply.comparison_table ||
-    reply.risk_analysis ||
-    reply.why_this_fits_user ||
-    reply.final_suggestion ||
-    reply.highlights,
-  )
-
-  if (!hasStructuredContent) {
-    return <MarkdownFallback text={reply.markdown || content} />
-  }
-
-  const highlights = reply.highlights || {}
-  const table = normalizeTable(reply.comparison_table)
-  return (
-    <div className="advisor-response">
-      <div className="advisor-highlight-grid">
-        <HighlightBadge label="Risk" value={highlights.risk_level} kind="risk" />
-        <HighlightBadge label="Expected Return" value={highlights.expected_return} />
-        <HighlightBadge label="Duration" value={highlights.duration} />
-        <HighlightBadge label="Liquidity" value={highlights.liquidity} />
-        <HighlightBadge label="Best Option" value={highlights.best_option} kind="best" />
-      </div>
-
-      <SummaryCard summary={reply.recommendation_summary} />
-
-      {table && (
-        <SectionCard title={SECTION_TITLES.comparison_table} accent="var(--teal)">
-          <ComparisonTable table={table} />
-        </SectionCard>
-      )}
-
-      <RiskAnalysis items={reply.risk_analysis} riskLevel={highlights.risk_level} />
-
-      <WhyThisFits items={reply.why_this_fits_user} />
-
-      <FinalSuggestion text={reply.final_suggestion} />
-
-      {reply.markdown && !reply.recommendation_summary && <MarkdownFallback text={reply.markdown} />}
-    </div>
-  )
+  return <MarkdownRenderer text={replyToMarkdown(reply)} />
 }
 
 function MessageBubble({ role, content }) {

@@ -192,112 +192,45 @@ input, select { font-family: var(--font-body); }
   text-transform: uppercase;
 }
 
-.advisor-response {
+.chat-markdown {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.advisor-highlight-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.advisor-badge {
-  min-width: 0;
-  border: 1px solid;
-  border-radius: 10px;
-  padding: 10px 11px;
-}
-
-.advisor-badge span {
-  display: block;
-  color: var(--text3);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: 3px;
-}
-
-.advisor-badge strong {
-  display: block;
-  font-family: var(--font-head);
-  font-size: 13px;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.advisor-section {
-  background: rgba(6, 8, 13, 0.34);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--teal);
-  border-radius: 10px;
-  padding: 14px 16px;
-}
-
-.advisor-final-suggestion {
-  background: linear-gradient(135deg, rgba(232,184,75,0.13), rgba(35,45,63,0.78));
-  border: 1px solid rgba(232,184,75,0.28);
-  border-left: 3px solid var(--gold);
-  border-radius: 10px;
-  padding: 15px 16px;
-  box-shadow: 0 10px 28px rgba(0,0,0,0.18);
-}
-
-.advisor-section h3,
-.advisor-final-suggestion h3,
-.advisor-markdown h3,
-.advisor-markdown h4 {
+.chat-markdown h3,
+.chat-markdown h4 {
   color: var(--text);
   font-family: var(--font-head);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 0;
-  margin-bottom: 8px;
+  margin-top: 4px;
 }
 
-.advisor-section p,
-.advisor-final-suggestion p,
-.advisor-markdown p {
+.chat-markdown p {
   color: var(--text2);
   font-size: 13px;
   line-height: 1.7;
 }
 
-.advisor-section strong,
-.advisor-final-suggestion strong,
-.advisor-markdown strong {
+.chat-markdown strong {
   color: var(--text);
   font-weight: 700;
 }
 
-.advisor-list {
+.chat-md-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  list-style: none;
-}
-
-.advisor-list li,
-.advisor-list-line {
-  position: relative;
+  gap: 7px;
+  margin: 2px 0 2px 18px;
   color: var(--text2);
   font-size: 13px;
   line-height: 1.65;
-  padding-left: 17px;
 }
 
-.advisor-list li::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0.72em;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--teal);
+.chat-md-list li::marker {
+  color: var(--teal);
 }
 
 .advisor-table-wrap {
@@ -305,6 +238,7 @@ input, select { font-family: var(--font-body); }
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 10px;
+  margin: 4px 0;
 }
 
 .advisor-table {
