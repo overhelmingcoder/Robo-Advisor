@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { RISK_BG, RISK_COLORS } from '../constants/appConstants'
 
 const COMMON_QUESTIONS = [
   'What is the expected return?',
@@ -11,30 +12,191 @@ const COMMON_QUESTIONS = [
   'How does it compare to my goal?',
 ]
 
+const SECTION_TITLES = {
+  recommendation_summary: 'Recommendation Summary',
+  comparison_table: 'Comparison Table',
+  risk_analysis: 'Risk Analysis',
+  why_this_fits_user: 'Why This Fits the User',
+  final_suggestion: 'Final Suggestion',
+}
+
+function riskColor(value) {
+  return RISK_COLORS[value] || 'var(--gold)'
+}
+
+function riskBg(value) {
+  return RISK_BG[value] || 'var(--gold-dim)'
+}
+
+function normalizeReply(content) {
+  if (!content) return null
+  if (typeof content === 'object') return content
+  if (typeof content !== 'string') return { markdown: String(content) }
+  try {
+    const parsed = JSON.parse(content)
+    if (parsed && typeof parsed === 'object') return parsed
+  } catch {
+    // Plain markdown/text fallback.
+  }
+  return { markdown: content, recommendation_summary: content }
+}
+
+function renderInlineMarkdown(text) {
+  const parts = String(text || '').split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index}>{part.slice(2, -2)}</strong>
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
+function MarkdownFallback({ text }) {
+  const lines = String(text || '').split('\n').filter((line) => line.trim())
+  if (!lines.length) return null
+
+  return (
+    <div className="advisor-markdown">
+      {lines.map((line, index) => {
+        const trimmed = line.trim()
+        if (trimmed.startsWith('### ')) return <h4 key={index}>{trimmed.slice(4)}</h4>
+        if (trimmed.startsWith('## ')) return <h3 key={index}>{trimmed.slice(3)}</h3>
+        if (trimmed.startsWith('# ')) return <h3 key={index}>{trimmed.slice(2)}</h3>
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          return <p key={index} className="advisor-list-line">• {renderInlineMarkdown(trimmed.slice(2))}</p>
+        }
+        return <p key={index}>{renderInlineMarkdown(trimmed)}</p>
+      })}
+    </div>
+  )
+}
+
+function HighlightBadge({ label, value, kind }) {
+  if (!value) return null
+  const isRisk = kind === 'risk'
+  const color = isRisk ? riskColor(value) : kind === 'best' ? 'var(--gold)' : 'var(--teal)'
+  const bg = isRisk ? riskBg(value) : kind === 'best' ? 'var(--gold-dim)' : 'var(--teal-dim)'
+  return (
+    <div className="advisor-badge" style={{ borderColor: `${color}55`, background: bg }}>
+      <span>{label}</span>
+      <strong style={{ color }}>{value}</strong>
+    </div>
+  )
+}
+
+function AdvisorTable({ table }) {
+  const columns = table?.columns || []
+  const rows = table?.rows || []
+  if (!columns.length || !rows.length) return null
+
+  return (
+    <div className="advisor-table-wrap">
+      <table className="advisor-table">
+        <thead>
+          <tr>
+            {columns.map((column) => (
+              <th key={column}>{column}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex}>
+              {columns.map((column, columnIndex) => (
+                <td key={`${rowIndex}-${columnIndex}`} data-label={column}>
+                  {renderInlineMarkdown(row?.[columnIndex] ?? '')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function SectionCard({ title, children, accent = 'var(--teal)' }) {
+  if (!children) return null
+  return (
+    <section className="advisor-section" style={{ borderLeftColor: accent }}>
+      <h3>{title}</h3>
+      {children}
+    </section>
+  )
+}
+
+function BulletList({ items }) {
+  const list = Array.isArray(items) ? items : items ? [items] : []
+  if (!list.length) return null
+  return (
+    <ul className="advisor-list">
+      {list.map((item, index) => (
+        <li key={index}>{renderInlineMarkdown(item)}</li>
+      ))}
+    </ul>
+  )
+}
+
+function StructuredAdvisorReply({ content }) {
+  const reply = normalizeReply(content)
+  if (!reply) return null
+
+  const hasStructuredContent = Boolean(
+    reply.recommendation_summary ||
+    reply.comparison_table ||
+    reply.risk_analysis ||
+    reply.why_this_fits_user ||
+    reply.final_suggestion ||
+    reply.highlights,
+  )
+
+  if (!hasStructuredContent) {
+    return <MarkdownFallback text={reply.markdown || content} />
+  }
+
+  const highlights = reply.highlights || {}
+  return (
+    <div className="advisor-response">
+      <div className="advisor-highlight-grid">
+        <HighlightBadge label="Risk" value={highlights.risk_level} kind="risk" />
+        <HighlightBadge label="Expected Return" value={highlights.expected_return} />
+        <HighlightBadge label="Duration" value={highlights.duration} />
+        <HighlightBadge label="Liquidity" value={highlights.liquidity} />
+        <HighlightBadge label="Best Option" value={highlights.best_option} kind="best" />
+      </div>
+
+      <SectionCard title={SECTION_TITLES.recommendation_summary} accent="var(--gold)">
+        <p>{renderInlineMarkdown(reply.recommendation_summary)}</p>
+      </SectionCard>
+
+      <SectionCard title={SECTION_TITLES.comparison_table} accent="var(--teal)">
+        <AdvisorTable table={reply.comparison_table} />
+      </SectionCard>
+
+      <SectionCard title={SECTION_TITLES.risk_analysis} accent={riskColor(highlights.risk_level)}>
+        <BulletList items={reply.risk_analysis} />
+      </SectionCard>
+
+      <SectionCard title={SECTION_TITLES.why_this_fits_user} accent="var(--green)">
+        <BulletList items={reply.why_this_fits_user} />
+      </SectionCard>
+
+      <SectionCard title={SECTION_TITLES.final_suggestion} accent="var(--gold)">
+        <p>{renderInlineMarkdown(reply.final_suggestion)}</p>
+      </SectionCard>
+
+      {reply.markdown && !reply.recommendation_summary && <MarkdownFallback text={reply.markdown} />}
+    </div>
+  )
+}
+
 function MessageBubble({ role, content }) {
   const isUser = role === 'user'
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: isUser ? 'flex-end' : 'flex-start',
-      marginBottom: 10,
-    }}>
-      <div style={{
-        maxWidth: '85%',
-        background: isUser ? 'rgba(232,184,75,0.14)' : 'var(--surface2)',
-        color: 'var(--text)',
-        border: isUser ? '1px solid rgba(232,184,75,0.32)' : '1px solid var(--border)',
-        borderRadius: 12,
-        padding: '12px 14px',
-        whiteSpace: 'pre-wrap',
-        lineHeight: 1.55,
-        fontFamily: 'var(--font-mono)',
-        fontSize: 12,
-      }}>
-        <div style={{ marginBottom: isUser ? 0 : 4, opacity: 0.7, fontSize: 10 }}>
-          {isUser ? 'You' : 'Advisor'}
-        </div>
-        <div>{content}</div>
+    <div className={`chat-row ${isUser ? 'chat-row-user' : 'chat-row-advisor'}`}>
+      <div className={`chat-bubble ${isUser ? 'chat-bubble-user' : 'chat-bubble-advisor'}`}>
+        <div className="chat-speaker">{isUser ? 'You' : 'Advisor'}</div>
+        {isUser ? <div>{content}</div> : <StructuredAdvisorReply content={content} />}
       </div>
     </div>
   )
@@ -55,13 +217,10 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
     inputRef.current?.focus()
   }, [])
 
-  // Filter suggestions based on input
   const getFilteredSuggestions = (input) => {
     if (!input.trim()) return []
     const lowerInput = input.toLowerCase()
-    return COMMON_QUESTIONS.filter((q) =>
-      q.toLowerCase().includes(lowerInput)
-    ).slice(0, 5) // Limit to 5 suggestions
+    return COMMON_QUESTIONS.filter((q) => q.toLowerCase().includes(lowerInput)).slice(0, 5)
   }
 
   const handleInputChange = (e) => {
@@ -80,30 +239,18 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
 
   const handleKeyDown = (e) => {
     if (suggestions.length === 0) return
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedSuggestion((prev) =>
-          prev < suggestions.length - 1 ? prev + 1 : prev
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedSuggestion((prev) => (prev > 0 ? prev - 1 : -1))
-        break
-      case 'Enter':
-        if (selectedSuggestion >= 0) {
-          e.preventDefault()
-          selectSuggestion(suggestions[selectedSuggestion])
-        }
-        break
-      case 'Escape':
-        setSuggestions([])
-        setSelectedSuggestion(-1)
-        break
-      default:
-        break
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedSuggestion((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedSuggestion((prev) => (prev > 0 ? prev - 1 : -1))
+    } else if (e.key === 'Enter' && selectedSuggestion >= 0) {
+      e.preventDefault()
+      selectSuggestion(suggestions[selectedSuggestion])
+    } else if (e.key === 'Escape') {
+      setSuggestions([])
+      setSelectedSuggestion(-1)
     }
   }
 
@@ -114,75 +261,49 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
     if (!message) return
     onSend(message)
     setDraft('')
-    if (inputRef.current) inputRef.current.focus()
+    inputRef.current?.focus()
   }
 
   const canSend = Boolean(draft.trim()) && !loading
+  const rate = scheme.interest_rate_typical?.toFixed ? `${Number(scheme.interest_rate_typical).toFixed(2)}%` : 'N/A'
 
   return (
-    <div style={{ marginTop: 28, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-        <button
-          type="button"
-          onClick={onBack}
-          style={{
-            marginBottom: 12,
-            background: 'none',
-            border: 'none',
-            color: 'var(--text3)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--gold)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text3)')}
-        >
-          ← Back to recommendations
+    <div className="scheme-chat-shell">
+      <div className="scheme-chat-header">
+        <button type="button" onClick={onBack} className="chat-back-button">
+          Back to recommendations
         </button>
 
-        <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, color: 'var(--text)', marginBottom: 6 }}>
-          Chat About: {scheme.scheme_name}
-        </h2>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)' }}>
-          {scheme.provider} · {scheme.scheme_type} · {scheme.interest_rate_typical?.toFixed ? `${Number(scheme.interest_rate_typical).toFixed(2)}%` : 'N/A'}
-        </p>
-        {profile && (
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-            Context: ৳{profile.monthly_investment.toLocaleString()} monthly for {profile.time_range_years} years
-            {' '}({profile.risk_level} risk)
-          </p>
-        )}
+        <div className="scheme-chat-title-row">
+          <div>
+            <h2>Chat About: {scheme.scheme_name}</h2>
+            <p>{scheme.provider} · {scheme.scheme_type} · {rate}</p>
+            {profile && (
+              <p>
+                Context: ৳{profile.monthly_investment.toLocaleString()} monthly for {profile.time_range_years} years ({profile.risk_level} risk)
+              </p>
+            )}
+          </div>
+          <span className="scheme-chat-risk" style={{ color: riskColor(scheme.risk_level), background: riskBg(scheme.risk_level) }}>
+            {scheme.risk_level} Risk
+          </span>
+        </div>
       </div>
 
-      <div style={{ minHeight: 260, maxHeight: 420, overflowY: 'auto', padding: '18px 24px', background: 'var(--bg2)' }}>
+      <div className="scheme-chat-messages">
         {messages.map((msg, index) => (
           <MessageBubble key={`${msg.role}-${index}`} role={msg.role} content={msg.content} />
         ))}
-        {loading && <MessageBubble role="assistant" content="Thinking..." />}
+        {loading && <MessageBubble role="assistant" content={{ recommendation_summary: 'Preparing a structured advisor response...', final_suggestion: 'Please wait a moment.' }} />}
         <div ref={endRef} />
       </div>
 
-      {error && (
-        <div style={{
-          padding: '0 24px 12px',
-          color: 'var(--red)',
-          fontFamily: 'var(--font-mono)',
-          fontSize: 11,
-        }}>
-          ✕ {error}
-        </div>
-      )}
+      {error && <div className="scheme-chat-error">✕ {error}</div>}
 
-      {/* Quick Question Suggestions */}
       {messages.length <= 1 && (
-        <div style={{ padding: '12px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text3)', letterSpacing: '0.05em', marginBottom: 8 }}>
-            QUICK QUESTIONS
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="quick-question-panel">
+          <div className="quick-question-label">QUICK QUESTIONS</div>
+          <div className="quick-question-list">
             {COMMON_QUESTIONS.map((question) => (
               <button
                 key={question}
@@ -192,29 +313,6 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
                   setDraft('')
                 }}
                 disabled={loading}
-                style={{
-                  padding: '6px 10px',
-                  background: 'rgba(45,212,191,0.08)',
-                  border: '1px solid rgba(45,212,191,0.2)',
-                  borderRadius: 6,
-                  color: 'var(--teal)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 10,
-                  fontWeight: 600,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.15s ease',
-                  opacity: loading ? 0.5 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (!loading) {
-                    e.currentTarget.style.background = 'rgba(45,212,191,0.15)'
-                    e.currentTarget.style.borderColor = 'rgba(45,212,191,0.4)'
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(45,212,191,0.08)'
-                  e.currentTarget.style.borderColor = 'rgba(45,212,191,0.2)'
-                }}
               >
                 {question}
               </button>
@@ -223,8 +321,8 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
         </div>
       )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 10, padding: 16, background: 'var(--surface)', position: 'relative' }}>
-        <div style={{ flex: 1, position: 'relative' }}>
+      <form onSubmit={handleSubmit} className="scheme-chat-form">
+        <div className="scheme-chat-input-wrap">
           <input
             ref={inputRef}
             type="text"
@@ -234,85 +332,26 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, loading, error 
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
             placeholder="Ask about returns, risks, lock-in period, liquidity, tax impact..."
-            style={{
-              width: '100%',
-              border: suggestions.length > 0 ? '1px solid rgba(45,212,191,0.4)' : '1px solid var(--border)',
-              background: 'var(--bg2)',
-              color: 'var(--text)',
-              borderRadius: 10,
-              padding: '12px 14px',
-              outline: 'none',
-              boxSizing: 'border-box',
-              transition: 'all 0.2s ease',
-            }}
           />
-          
-          {/* Suggestions Dropdown */}
+
           {suggestions.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              marginTop: 4,
-              background: 'var(--surface2)',
-              border: '1px solid var(--border)',
-              borderRadius: 10,
-              zIndex: 1000,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-              maxHeight: 200,
-              overflowY: 'auto',
-            }}>
+            <div className="chat-suggestions">
               {suggestions.map((suggestion, index) => (
                 <button
-                  key={index}
+                  key={suggestion}
                   type="button"
                   onClick={() => selectSuggestion(suggestion)}
-                  style={{
-                    width: '100%',
-                    padding: '10px 14px',
-                    textAlign: 'left',
-                    border: 'none',
-                    background: selectedSuggestion === index ? 'rgba(45,212,191,0.1)' : 'transparent',
-                    color: 'var(--text)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    borderBottom: index < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    setSelectedSuggestion(index)
-                    e.currentTarget.style.background = 'rgba(45,212,191,0.1)'
-                  }}
-                  onMouseLeave={(e) => {
-                    if (selectedSuggestion !== index) {
-                      e.currentTarget.style.background = 'transparent'
-                    }
-                  }}
+                  className={selectedSuggestion === index ? 'selected' : ''}
+                  onMouseEnter={() => setSelectedSuggestion(index)}
                 >
-                  <div style={{ color: 'var(--teal)', fontSize: 11, marginBottom: 2 }}>✦ Suggestion</div>
+                  <span>Suggestion</span>
                   {suggestion}
                 </button>
               ))}
             </div>
           )}
         </div>
-        <button
-          type="submit"
-          disabled={!canSend}
-          style={{
-            border: 'none',
-            borderRadius: 10,
-            padding: '12px 16px',
-            background: canSend ? 'linear-gradient(135deg, var(--gold) 0%, #d4952a 100%)' : 'var(--surface2)',
-            color: canSend ? '#0a0d12' : 'var(--text3)',
-            fontFamily: 'var(--font-head)',
-            fontWeight: 700,
-            fontSize: 12,
-            cursor: canSend ? 'pointer' : 'not-allowed',
-          }}
-        >
+        <button type="submit" disabled={!canSend} className="scheme-chat-send">
           {loading ? 'Sending...' : 'Send'}
         </button>
       </form>

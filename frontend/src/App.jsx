@@ -72,7 +72,12 @@ export default function App() {
     setChatLoading(true)
 
     try {
-      const history = nextMessages.map((msg) => ({ role: msg.role, content: msg.content }))
+      const history = nextMessages.map((msg) => ({
+        role: msg.role,
+        content: typeof msg.content === 'string'
+          ? msg.content
+          : msg.content?.recommendation_summary || msg.content?.final_suggestion || JSON.stringify(msg.content),
+      }))
       const data = await sendSchemeChatMessage(
         {
           scheme_id: selectedScheme.scheme_id,
