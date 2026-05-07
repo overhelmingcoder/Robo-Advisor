@@ -58,7 +58,16 @@ FAST_RETURN = os.getenv("FAST_RETURN", "1") == "1"
 FAST_ENRICH = os.getenv("FAST_ENRICH", "1") == "1"
 
 # ── API config ────────────────────────────────────────────────────────────────
-ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+_DEPLOYED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("ALLOWED_ORIGINS", "").split(",")
+    if origin.strip()
+]
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    *_DEPLOYED_ORIGINS,
+]
 
 # ── Runtime state ─────────────────────────────────────────────────────────────
 # Simple in-memory cache for recommendations: {key: (ts, result_json)}
