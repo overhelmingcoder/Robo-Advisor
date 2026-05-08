@@ -1,22 +1,7 @@
 function Header() {
   return (
-    <header style={{
-      padding: '0 40px',
-      background: 'rgba(6,8,13,0.95)',
-      backdropFilter: 'blur(20px)',
-      borderBottom: '1px solid var(--border)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-    }}>
-      <div style={{
-        maxWidth: 1200,
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 64,
-      }}>
+    <header className="site-header">
+      <div className="site-header-inner">
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{
             width: 40,
@@ -40,7 +25,7 @@ function Header() {
             </div>
           </div>
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text3)', letterSpacing: '0.03em', fontWeight: 500 }}>
+        <div className="site-header-tagline">
           AI-POWERED · REAL DATA · 2025
         </div>
       </div>

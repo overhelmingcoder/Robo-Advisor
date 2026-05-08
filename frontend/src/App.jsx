@@ -144,7 +144,7 @@ export default function App() {
         <Header />
         <Ticker />
 
-        <main style={{ maxWidth: 860, margin: '0 auto', padding: '0 20px 80px' }}>
+        <main className="app-main">
           <Hero />
           <InputForm onSubmit={handleSubmit} loading={loading} savedSubmissions={getSavedSubmissions()} />
 

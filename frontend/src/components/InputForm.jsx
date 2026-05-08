@@ -24,10 +24,21 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
 
   // Helper to format currency values
   const formatCurrency = (val) => {
-    if (val >= 1000000) return `${(val / 1000000).toFixed(0)}Cr`
-    if (val >= 100000) return `${(val / 100000).toFixed(0)}L`
-    if (val >= 1000) return `${(val / 1000).toFixed(0)}K`
-    return String(val)
+    const amount = Number(val)
+    if (!Number.isFinite(amount) || amount <= 0) return ''
+    const formatShort = (value, suffix) => {
+      const rounded = Number(value.toFixed(value >= 10 ? 0 : 1))
+      return `${rounded}${suffix}`
+    }
+    if (amount >= 10000000) return formatShort(amount / 10000000, 'Cr')
+    if (amount >= 100000) return formatShort(amount / 100000, 'L')
+    if (amount >= 1000) return formatShort(amount / 1000, 'k')
+    return String(amount)
+  }
+
+  const amountPreview = (value) => {
+    const formatted = formatCurrency(value)
+    return formatted ? `৳${formatted}` : ''
   }
 
   // Get unique previous values for each field
@@ -89,14 +100,8 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
   const goalSuggestions = getFieldSuggestions('target_goal')
 
   return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-lg)',
-      padding: '36px 40px',
-      animation: 'fadeUp 0.5s ease both',
-    }}>
-      <div style={{ marginBottom: 28 }}>
+    <div className="profile-form-card">
+      <div className="profile-form-heading">
         <h2 style={{
           fontFamily: 'var(--font-head)',
           fontWeight: 700,
@@ -111,13 +116,13 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="profile-form-grid">
         <Field label="Monthly Income" unit="BDT" error={errors.monthly_income} hint={savingsRate ? `Savings rate: ${savingsRate}%` : null} suggestions={incomeSuggestions}>
-          <NumberInput value={form.monthly_income} onChange={(v) => setField('monthly_income', v)} placeholder="e.g. 50000" suggestions={incomeSuggestions} />
+          <NumberInput value={form.monthly_income} onChange={(v) => setField('monthly_income', v)} placeholder="e.g. 50000" suggestions={incomeSuggestions} preview={amountPreview(form.monthly_income)} />
         </Field>
 
         <Field label="Monthly Investment" unit="BDT" error={errors.monthly_investment} suggestions={investmentSuggestions}>
-          <NumberInput value={form.monthly_investment} onChange={(v) => setField('monthly_investment', v)} placeholder="e.g. 10000" suggestions={investmentSuggestions} />
+          <NumberInput value={form.monthly_investment} onChange={(v) => setField('monthly_investment', v)} placeholder="e.g. 10000" suggestions={investmentSuggestions} preview={amountPreview(form.monthly_investment)} />
         </Field>
 
         <Field label="Investment Horizon" unit="Years" error={errors.time_range_years} suggestions={horizonSuggestions}>
@@ -125,13 +130,13 @@ function InputForm({ onSubmit, loading, savedSubmissions = [] }) {
         </Field>
 
         <Field label="Target Goal" unit="BDT (optional)" suggestions={goalSuggestions}>
-          <NumberInput value={form.target_goal} onChange={(v) => setField('target_goal', v)} placeholder="e.g. 1000000" suggestions={goalSuggestions} />
+          <NumberInput value={form.target_goal} onChange={(v) => setField('target_goal', v)} placeholder="e.g. 1000000" suggestions={goalSuggestions} preview={amountPreview(form.target_goal)} />
         </Field>
       </div>
 
-      <div style={{ marginTop: 24 }}>
+      <div className="risk-section">
         <Field label="Risk Tolerance">
-          <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+          <div className="risk-options">
             {['Low', 'Medium', 'High'].map((r) => (
               <button
                 type="button"
