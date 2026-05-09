@@ -22,7 +22,7 @@ services:
       - key: OPENROUTER_MAX_TOKENS
         value: "900"
       - key: CHAT_MAX_TOKENS
-        value: "420"
+        value: "450"
       - key: OPENROUTER_TEMP
         value: "0.0"
       - key: OPENROUTER_CACHE_TTL

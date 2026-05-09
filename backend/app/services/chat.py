@@ -71,12 +71,13 @@ def _system_prompt() -> str:
         "Answer only the user's latest question using the selected scheme and user profile. "
         "Do not repeat a fixed report template. Do not include generic sections like Recommendation Summary, "
         "Comparison Table, Risk Analysis, Why This Fits, or Final Suggestion unless the user explicitly asks for that format. "
-        "For simple questions, answer in 2-4 short sentences. For risk/comparison questions, use up to 4 bullets. "
+        "For normal questions, answer in 100-250 words. Use clear paragraphs or up to 4 bullets when helpful. "
+        "For very simple factual questions, keep the answer concise but still useful. "
         "Use a table only when the user explicitly asks to compare. "
         "If the user asks whether the scheme matches their goal, directly compare projected maturity value, total investment, "
         "monthly investment, horizon, and target goal when those values are available. "
         "If the answer is not available in the provided context, say what is missing and suggest what to verify. "
-        "Return ONLY valid JSON with this shape: {\"markdown\":\"concise markdown answer\"}."
+        "Return ONLY valid JSON with this shape: {\"markdown\":\"100-250 word markdown answer\"}."
     )
 
 
