@@ -5,64 +5,25 @@ import re
 import time
 import logging
 
-import httpx
 from fastapi import HTTPException
 
 from app.config import (
     AI_API_KEY,
     AI_ERROR_SOURCE,
-    AI_URL,
     CACHE,
     CACHE_TTL,
     FAST_ENRICH,
     FAST_RETURN,
     MODEL,
     OPENROUTER_MAX_ITER,
+    OPENROUTER_MAX_TOKENS,
     OPENROUTER_TEMP,
-    OPENROUTER_TIMEOUT,
 )
 from app.models import UserProfile
+from app.services.ai_client import post_chat_completion
 from app.tools import TOOLS, dispatch_tool, filter_schemes, score_and_rank_schemes
 
 logger = logging.getLogger(__name__)
-
-
-def _httpx_error_message(exc: Exception) -> str:
-    return f"{AI_ERROR_SOURCE} request error: {exc.__class__.__name__}"
-
-
-def _raise_for_request_error(payload_exc: Exception) -> None:
-    if isinstance(payload_exc, httpx.HTTPStatusError):
-        status = payload_exc.response.status_code
-        body = payload_exc.response.text[:800]
-        if status == 429:
-            raise HTTPException(status_code=429, detail=f"{AI_ERROR_SOURCE} rate limit exceeded: {body}")
-        raise HTTPException(status_code=502, detail=f"{AI_ERROR_SOURCE} API error ({status}): {body}")
-    if isinstance(payload_exc, httpx.TimeoutException):
-        raise HTTPException(status_code=504, detail=f"{AI_ERROR_SOURCE} timed out after {OPENROUTER_TIMEOUT}s")
-    if isinstance(payload_exc, httpx.RequestError):
-        raise HTTPException(status_code=502, detail=_httpx_error_message(payload_exc))
-    raise HTTPException(status_code=502, detail=_httpx_error_message(payload_exc))
-
-
-async def _post_completion(payload: dict) -> dict:
-    try:
-        async with httpx.AsyncClient(timeout=OPENROUTER_TIMEOUT) as client:
-            resp = await client.post(AI_URL, headers=_headers(), json=payload)
-            resp.raise_for_status()
-            return resp.json()
-    except Exception as exc:
-        logger.warning("LLM request failed: %s", _httpx_error_message(exc))
-        _raise_for_request_error(exc)
-        raise
-
-
-def _headers() -> dict:
-    return {
-        "Authorization": f"Bearer {AI_API_KEY}",
-        "Content-Type": "application/json",
-        "HTTP-Referer": "http://localhost:5173",
-    }
 
 
 def _clean_json_text(content: str) -> str:
@@ -131,12 +92,13 @@ async def _enrich_and_cache(messages: list[dict], cache_key: str):
         payload = {
             "model": MODEL,
             "messages": messages,
+            "max_tokens": OPENROUTER_MAX_TOKENS,
             "tools": TOOLS,
             "tool_choice": "auto",
             "temperature": OPENROUTER_TEMP,
         }
         for _ in range(OPENROUTER_MAX_ITER):
-            data = await _post_completion(payload)
+            data = await post_chat_completion(payload)
             choice = data["choices"][0]
             msg = choice["message"]
             messages.append(msg)
@@ -169,11 +131,12 @@ async def _run_agentic_recommendation(messages: list[dict], cache_key: str | Non
         payload = {
             "model": MODEL,
             "messages": messages,
+            "max_tokens": OPENROUTER_MAX_TOKENS,
             "tools": TOOLS,
             "tool_choice": "auto",
             "temperature": OPENROUTER_TEMP,
         }
-        data = await _post_completion(payload)
+        data = await post_chat_completion(payload)
         choice = data["choices"][0]
         msg = choice["message"]
         finish = choice.get("finish_reason")

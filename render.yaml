@@ -12,20 +12,38 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.9
       - key: OPENROUTER_MODEL
-        value: anthropic/claude-3.5-sonnet
+        value: openrouter/free
+      - key: AI_MODEL_FALLBACKS
+        value: tencent/hy3-preview:free,nvidia/nemotron-3-super-120b-a12b:free,openai/gpt-oss-120b:free,google/gemma-4-31b-it:free
       - key: OPENROUTER_TIMEOUT
-        value: "30"
+        value: "60"
       - key: OPENROUTER_MAX_ITER
-        value: "2"
+        value: "1"
+      - key: OPENROUTER_MAX_TOKENS
+        value: "900"
+      - key: CHAT_MAX_TOKENS
+        value: "420"
       - key: OPENROUTER_TEMP
         value: "0.0"
       - key: OPENROUTER_CACHE_TTL
         value: "300"
+      - key: APP_TITLE
+        value: Bangladesh Robo-Advisor
       - key: FAST_RETURN
         value: "1"
       - key: FAST_ENRICH
-        value: "1"
+        value: "0"
       - key: OPENROUTER_API_KEY
         sync: false
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_AI_GATEWAY_ID
+        value: default
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
+      - key: USE_CLOUDFLARE_AI_GATEWAY
+        value: "1"
       - key: ALLOWED_ORIGINS
+        sync: false
+      - key: SITE_URL
         sync: false
