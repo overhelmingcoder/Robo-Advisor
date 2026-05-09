@@ -94,6 +94,7 @@ export default function App() {
           question: message,
           history,
           profile,
+          recommended_schemes: result?.schemes || [],
         },
         API_BASE,
         { signal: controller.signal },

@@ -10,6 +10,7 @@ const COMMON_QUESTIONS = [
   'Minimum investment?',
   'Is this better than FDR?',
   'How does it compare to my goal?',
+  'Compare all 5 recommendations',
 ]
 
 function riskColor(value) {

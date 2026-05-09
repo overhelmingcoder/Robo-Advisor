@@ -65,6 +65,34 @@ def _scheme_context(scheme: dict, profile=None) -> str:
     }, ensure_ascii=False)
 
 
+def _compact_scheme_for_context(scheme: dict) -> dict:
+    return {
+        "scheme_id": scheme.get("scheme_id"),
+        "scheme_name": scheme.get("scheme_name"),
+        "provider": scheme.get("provider"),
+        "scheme_type": scheme.get("scheme_type"),
+        "risk_level": scheme.get("risk_level"),
+        "interest_rate_typical": scheme.get("interest_rate_typical"),
+        "projected_maturity_value": scheme.get("projected_maturity_value"),
+        "total_invested": scheme.get("total_invested"),
+        "projected_profit": scheme.get("projected_profit"),
+        "liquidity": scheme.get("liquidity"),
+        "score": scheme.get("score"),
+        "notes": scheme.get("notes"),
+    }
+
+
+def _recommended_schemes_context(schemes: list[dict]) -> str:
+    compact = [
+        _compact_scheme_for_context(scheme)
+        for scheme in schemes[:5]
+        if isinstance(scheme, dict) and scheme.get("scheme_id")
+    ]
+    if not compact:
+        return "No recommendation list was provided for cross-scheme comparison."
+    return json.dumps(compact, ensure_ascii=False)
+
+
 def _system_prompt() -> str:
     return (
         "You are a Bangladesh investment assistant inside a scheme-specific chat. "
@@ -76,6 +104,8 @@ def _system_prompt() -> str:
         "For normal questions, answer in 100-250 words. For very simple factual questions, be shorter but still useful. "
         "When the user asks to compare, include either a compact markdown table inside markdown or a JSON table object. "
         "Preferred comparison columns are Metric, Selected Scheme, Comparison Point, Advisor View. Keep table cells short for mobile. "
+        "If a recommended schemes list is provided, you may compare all listed recommendations, not only the selected scheme. "
+        "For all-scheme comparisons, prefer columns Scheme, Risk, Return, Liquidity, Projected Value, Advisor View. "
         "If the user asks whether the scheme matches their goal, directly compare projected maturity value, total investment, "
         "monthly investment, horizon, and target goal when those values are available. "
         "If the answer is not available in the provided context, say what is missing and suggest what to verify. "
@@ -166,12 +196,14 @@ async def chat_about_scheme(request: ChatRequest) -> dict:
         return {"reply": _provider_fallback(scheme)}
 
     scheme_context = _scheme_context(scheme, request.profile)
+    recommended_context = _recommended_schemes_context(request.recommended_schemes)
     profile_text = format_profile_line(request.profile)
     latest_question = request.question.strip()
 
     messages = [
         {"role": "system", "content": _system_prompt()},
         {"role": "system", "content": f"Selected scheme context (must always be followed):\n{scheme_context}"},
+        {"role": "system", "content": f"Current top recommendations for comparison:\n{recommended_context}"},
         {"role": "system", "content": f"User profile context:\n{profile_text}"},
         *_recent_user_context(request.history),
         {"role": "user", "content": latest_question},

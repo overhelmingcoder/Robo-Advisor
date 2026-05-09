@@ -23,4 +23,4 @@ class ChatRequest(BaseModel):
     question: str
     profile: UserProfile | None = None
     history: list[ChatMessage] = Field(default_factory=list)
-
+    recommended_schemes: list[dict] = Field(default_factory=list)
