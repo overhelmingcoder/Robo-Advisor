@@ -336,6 +336,8 @@ input, select { font-family: var(--font-body); }
   border: 1px solid var(--border);
   border-radius: 10px;
   margin: 4px 0;
+  background: rgba(255,255,255,0.025);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .advisor-table {
@@ -343,6 +345,7 @@ input, select { font-family: var(--font-body); }
   min-width: 560px;
   border-collapse: collapse;
   font-size: 12px;
+  table-layout: fixed;
 }
 
 .advisor-table th {
@@ -355,6 +358,7 @@ input, select { font-family: var(--font-body); }
   text-align: left;
   padding: 10px 12px;
   border-bottom: 1px solid var(--border);
+  white-space: nowrap;
 }
 
 .advisor-table td {
@@ -362,6 +366,8 @@ input, select { font-family: var(--font-body); }
   padding: 11px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .advisor-table tr:last-child td { border-bottom: none; }

@@ -73,11 +73,17 @@ def _system_prompt() -> str:
         "Comparison Table, Risk Analysis, Why This Fits, or Final Suggestion unless the user explicitly asks for that format. "
         "For normal questions, answer in 100-250 words. Use clear paragraphs or up to 4 bullets when helpful. "
         "For very simple factual questions, keep the answer concise but still useful. "
-        "Use a table only when the user explicitly asks to compare. "
+        "When the user asks to compare, include a compact markdown table or a JSON table object. "
+        "Preferred comparison table columns are Metric, Selected Scheme, Comparison Point, Advisor View. "
+        "Keep table cells short so they render well on mobile. "
         "If the user asks whether the scheme matches their goal, directly compare projected maturity value, total investment, "
         "monthly investment, horizon, and target goal when those values are available. "
         "If the answer is not available in the provided context, say what is missing and suggest what to verify. "
-        "Return ONLY valid JSON with this shape: {\"markdown\":\"100-250 word markdown answer\"}."
+        "Return ONLY valid JSON with this shape: "
+        "{\"markdown\":\"100-250 word markdown answer\","
+        "\"table\":{\"columns\":[\"Metric\",\"Selected Scheme\",\"Comparison Point\",\"Advisor View\"],"
+        "\"rows\":[[\"Return\",\"...\",\"...\",\"...\"]]}}. "
+        "Use table as null when no comparison table is needed."
     )
 
 
@@ -98,14 +104,21 @@ def _provider_fallback(scheme: dict) -> dict:
 
 def _normalize_structured_response(parsed: dict, scheme: dict) -> dict:
     markdown = parsed.get("markdown") or parsed.get("answer") or parsed.get("reply")
+    table = parsed.get("table") or parsed.get("comparison_table")
     if markdown:
-        return _markdown_reply(str(markdown))
+        reply = _markdown_reply(str(markdown))
+        if table:
+            reply["table"] = table
+        return reply
 
     chunks = [
         parsed.get("recommendation_summary") or parsed.get("summary"),
         parsed.get("final_suggestion") or parsed.get("recommendation"),
     ]
-    return _markdown_reply("\n\n".join(str(chunk) for chunk in chunks if chunk))
+    reply = _markdown_reply("\n\n".join(str(chunk) for chunk in chunks if chunk))
+    if table:
+        reply["table"] = table
+    return reply
 
 
 def _parse_llm_response(payload: dict, scheme: dict) -> dict:

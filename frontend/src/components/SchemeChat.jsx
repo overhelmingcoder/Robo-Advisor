@@ -152,7 +152,7 @@ function normalizeReply(content) {
   return {
     recommendation_summary: looksLikeJson(summary) ? '' : summary,
     highlights: source.highlights || {},
-    comparison_table: normalizeTable(source.comparison_table || source.table),
+    comparison_table: normalizeTable(source.comparison_table || source.table || source.markdown_table),
     risk_analysis: normalizeArray(source.risk_analysis),
     why_this_fits_user: normalizeArray(source.why_this_fits_user || source.why_this_fits || source.fit_analysis),
     final_suggestion: source.final_suggestion || source.recommendation || '',
@@ -165,7 +165,8 @@ function replyToMarkdown(reply) {
 
   const existingMarkdown = stripCodeFence(reply.markdown || '')
   if (existingMarkdown && !looksLikeJson(existingMarkdown)) {
-    return existingMarkdown
+    const tableMarkdown = tableToMarkdown(reply.comparison_table)
+    return [existingMarkdown, tableMarkdown].filter(Boolean).join('\n\n')
   }
 
   const chunks = []
@@ -420,7 +421,7 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, onPause, loadin
         {messages.map((msg, index) => (
           <MessageBubble key={`${msg.role}-${index}`} role={msg.role} content={msg.content} />
         ))}
-        {loading && <MessageBubble role="assistant" content={{ recommendation_summary: 'Preparing a structured advisor response...', final_suggestion: 'Please wait a moment.' }} />}
+        {loading && <MessageBubble role="assistant" content={{ markdown: 'Checking this scheme against your question...' }} />}
         <div ref={endRef} />
       </div>
 
