@@ -14,7 +14,7 @@ services:
       - key: OPENROUTER_MODEL
         value: openrouter/free
       - key: AI_MODEL_FALLBACKS
-        value: tencent/hy3-preview:free,nvidia/nemotron-3-super-120b-a12b:free,openai/gpt-oss-120b:free,google/gemma-4-31b-it:free
+        value: nvidia/nemotron-3-super-120b-a12b:free,openai/gpt-oss-120b:free,google/gemma-4-31b-it:free
       - key: OPENROUTER_TIMEOUT
         value: "60"
       - key: OPENROUTER_MAX_ITER
@@ -35,14 +35,6 @@ services:
         value: "0"
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: CLOUDFLARE_ACCOUNT_ID
-        sync: false
-      - key: CLOUDFLARE_AI_GATEWAY_ID
-        value: default
-      - key: CLOUDFLARE_API_TOKEN
-        sync: false
-      - key: USE_CLOUDFLARE_AI_GATEWAY
-        value: "1"
       - key: ALLOWED_ORIGINS
         sync: false
       - key: SITE_URL

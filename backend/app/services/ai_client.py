@@ -8,10 +8,8 @@ from app.config import (
     AI_API_KEY,
     AI_ERROR_SOURCE,
     AI_MODELS,
-    AI_PROVIDER,
     AI_URLS,
     APP_TITLE,
-    CLOUDFLARE_API_TOKEN,
     OPENROUTER_TIMEOUT,
     SITE_URL,
 )
@@ -26,8 +24,6 @@ def provider_headers() -> dict:
         "HTTP-Referer": SITE_URL,
         "X-Title": APP_TITLE,
     }
-    if AI_PROVIDER == "Cloudflare AI Gateway" and CLOUDFLARE_API_TOKEN:
-        headers["cf-aig-authorization"] = f"Bearer {CLOUDFLARE_API_TOKEN}"
     return headers
 
 
