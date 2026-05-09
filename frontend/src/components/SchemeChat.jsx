@@ -358,7 +358,7 @@ function MessageBubble({ role, content }) {
   )
 }
 
-function SchemeChat({ scheme, profile, messages, onSend, onBack, onPause, loading, error }) {
+function SchemeChat({ scheme, profile, recommendationCount = 0, messages, onSend, onBack, onPause, loading, error }) {
   const inputRef = useRef(null)
   const endRef = useRef(null)
   const [draft, setDraft] = useState('')
@@ -437,6 +437,7 @@ function SchemeChat({ scheme, profile, messages, onSend, onBack, onPause, loadin
             {profile && (
               <p>
                 Context: ৳{profile.monthly_investment.toLocaleString()} monthly for {profile.time_range_years} years ({profile.risk_level} risk)
+                {recommendationCount > 1 ? ` · ${recommendationCount} schemes available for comparison` : ''}
               </p>
             )}
           </div>

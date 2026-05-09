@@ -89,8 +89,12 @@ def _recommended_schemes_context(schemes: list[dict]) -> str:
         if isinstance(scheme, dict) and scheme.get("scheme_id")
     ]
     if not compact:
-        return "No recommendation list was provided for cross-scheme comparison."
-    return json.dumps(compact, ensure_ascii=False)
+        return json.dumps({
+            "count": 0,
+            "schemes": [],
+            "note": "No recommendation list was provided; only the selected scheme can be analyzed.",
+        }, ensure_ascii=False)
+    return json.dumps({"count": len(compact), "schemes": compact}, ensure_ascii=False)
 
 
 def _system_prompt() -> str:
@@ -104,7 +108,8 @@ def _system_prompt() -> str:
         "For normal questions, answer in 100-250 words. For very simple factual questions, be shorter but still useful. "
         "When the user asks to compare, include either a compact markdown table inside markdown or a JSON table object. "
         "Preferred comparison columns are Metric, Selected Scheme, Comparison Point, Advisor View. Keep table cells short for mobile. "
-        "If a recommended schemes list is provided, you may compare all listed recommendations, not only the selected scheme. "
+        "If Current top recommendations has count greater than 1, you may compare all listed recommendations, not only the selected scheme. "
+        "If count is 0, say that only the selected scheme is available in this chat context. "
         "For all-scheme comparisons, prefer columns Scheme, Risk, Return, Liquidity, Projected Value, Advisor View. "
         "If the user asks whether the scheme matches their goal, directly compare projected maturity value, total investment, "
         "monthly investment, horizon, and target goal when those values are available. "

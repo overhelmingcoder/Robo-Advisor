@@ -163,6 +163,7 @@ export default function App() {
               <SchemeChat
                 scheme={selectedScheme}
                 profile={profile}
+                recommendationCount={result?.schemes?.length || 0}
                 messages={chatMessages}
                 loading={chatLoading}
                 error={chatError}
