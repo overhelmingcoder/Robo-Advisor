@@ -200,10 +200,13 @@ function replyToMarkdown(reply) {
 
 function renderInlineMarkdown(text) {
   const safeText = looksLikeJson(text) ? '' : String(text || '')
-  const parts = safeText.split(/(\*\*[^*]+\*\*)/g)
+  const parts = safeText.split(/(\*\*[^*]+\*\*|_[^_]+_)/g)
   return parts.map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={index}>{part.slice(2, -2)}</strong>
+    }
+    if (part.startsWith('_') && part.endsWith('_')) {
+      return <em key={index}>{part.slice(1, -1)}</em>
     }
     return <span key={index}>{part}</span>
   })
@@ -216,6 +219,7 @@ function MarkdownRenderer({ text }) {
 
   const nodes = []
   let listItems = []
+  let orderedItems = []
 
   const flushList = () => {
     if (!listItems.length) return
@@ -229,47 +233,71 @@ function MarkdownRenderer({ text }) {
     listItems = []
   }
 
+  const flushOrderedList = () => {
+    if (!orderedItems.length) return
+    nodes.push(
+      <ol key={`ordered-list-${nodes.length}`} className="chat-md-list chat-md-list-ordered">
+        {orderedItems.map((item, index) => (
+          <li key={index}>{renderInlineMarkdown(item)}</li>
+        ))}
+      </ol>,
+    )
+    orderedItems = []
+  }
+
+  const flushAllLists = () => {
+    flushList()
+    flushOrderedList()
+  }
+
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index]
     const trimmed = line.trim()
     if (!trimmed) {
-      flushList()
+      flushAllLists()
       continue
     }
 
     const tableResult = markdownTableToTable(lines, index)
     if (tableResult) {
-      flushList()
+      flushAllLists()
       nodes.push(<ComparisonTable key={`table-${nodes.length}`} table={tableResult.table} />)
       index = tableResult.nextIndex - 1
       continue
     }
 
     if (trimmed.startsWith('### ')) {
-      flushList()
+      flushAllLists()
       nodes.push(<h4 key={`h-${nodes.length}`}>{trimmed.slice(4)}</h4>)
       continue
     }
     if (trimmed.startsWith('## ')) {
-      flushList()
+      flushAllLists()
       nodes.push(<h3 key={`h-${nodes.length}`}>{trimmed.slice(3)}</h3>)
       continue
     }
     if (trimmed.startsWith('# ')) {
-      flushList()
+      flushAllLists()
       nodes.push(<h3 key={`h-${nodes.length}`}>{trimmed.slice(2)}</h3>)
       continue
     }
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      flushOrderedList()
       listItems.push(trimmed.slice(2))
       continue
     }
+    const orderedMatch = trimmed.match(/^\d+\.\s+(.+)$/)
+    if (orderedMatch) {
+      flushList()
+      orderedItems.push(orderedMatch[1])
+      continue
+    }
 
-    flushList()
+    flushAllLists()
     nodes.push(<p key={`p-${nodes.length}`}>{renderInlineMarkdown(trimmed)}</p>)
   }
 
-  flushList()
+  flushAllLists()
   return <div className="chat-markdown">{nodes}</div>
 }
 

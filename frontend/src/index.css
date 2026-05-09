@@ -316,6 +316,11 @@ input, select { font-family: var(--font-body); }
   font-weight: 700;
 }
 
+.chat-markdown em {
+  color: var(--text2);
+  font-style: italic;
+}
+
 .chat-md-list {
   display: flex;
   flex-direction: column;
@@ -328,6 +333,10 @@ input, select { font-family: var(--font-body); }
 
 .chat-md-list li::marker {
   color: var(--teal);
+}
+
+.chat-md-list-ordered {
+  margin-left: 20px;
 }
 
 .advisor-table-wrap {
